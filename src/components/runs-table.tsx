@@ -8,15 +8,17 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import { Link } from '@tanstack/react-router'
-import { Pencil, Trash2 } from 'lucide-react'
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDeleteRun } from '@/hooks/use-runs'
+import { findSavedDuplicateGroups } from '@/lib/duplicates'
 import { formatDuration, formatRunDate, formatTowerNumber, runMetrics } from '@/lib/metrics'
 import type { PlayMode, Run } from '@/types/run'
+import { cn } from '@/lib/utils'
 
 const features = tableFeatures({
   rowSortingFeature,
@@ -36,6 +38,17 @@ export function RunsTable({ runs }: { runs: Run[] }) {
       return true
     })
   }, [runs, tierFilter, modeFilter])
+
+  const duplicateGroups = useMemo(() => findSavedDuplicateGroups(runs), [runs])
+  const duplicateIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const group of duplicateGroups) {
+      for (const d of group.dupes) ids.add(d.id)
+      // Keep the oldest (kept) run unmarked as "extra" — only flag extras,
+      // but also mark keep if we want visibility. Flag all members except keep.
+    }
+    return ids
+  }, [duplicateGroups])
 
   const columns = useMemo<ColumnDef<typeof features, Run>[]>(
     () => [
@@ -92,6 +105,15 @@ export function RunsTable({ runs }: { runs: Run[] }) {
         cell: ({ row }) => formatTowerNumber(runMetrics(row.original).cellsPerHour),
       },
       {
+        id: 'flags',
+        header: '',
+        enableSorting: false,
+        cell: ({ row }) =>
+          duplicateIds.has(row.original.id) ? (
+            <Badge className="border-chart-3/50 bg-chart-3/15 text-chart-3">Duplicate</Badge>
+          ) : null,
+      },
+      {
         id: 'actions',
         header: '',
         enableSorting: false,
@@ -119,7 +141,7 @@ export function RunsTable({ runs }: { runs: Run[] }) {
         ),
       },
     ],
-    [deleteRun],
+    [deleteRun, duplicateIds],
   )
 
   const table = useTable({
@@ -130,6 +152,22 @@ export function RunsTable({ runs }: { runs: Run[] }) {
       sorting: [{ id: 'ran_at', desc: true }],
     },
   })
+
+  async function deleteDuplicateExtras() {
+    const extras = duplicateGroups.flatMap((g) => g.dupes)
+    if (extras.length === 0) return
+    if (!confirm(`Delete ${extras.length} duplicate run${extras.length === 1 ? '' : 's'}? The earliest of each group is kept.`)) {
+      return
+    }
+    try {
+      for (const run of extras) {
+        await deleteRun.mutateAsync(run.id)
+      }
+      toast.success(`Deleted ${extras.length} duplicate${extras.length === 1 ? '' : 's'}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete duplicates')
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -151,6 +189,26 @@ export function RunsTable({ runs }: { runs: Run[] }) {
           </SelectContent>
         </Select>
       </div>
+
+      {duplicateGroups.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-chart-3/40 bg-chart-3/10 px-3 py-2 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-3" />
+            <p>
+              {duplicateGroups.length} duplicate group{duplicateGroups.length === 1 ? '' : 's'} found
+              (same day + tier + wave + coins/cells) — likely from re-importing a screenshot.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={deleteRun.isPending}
+            onClick={() => void deleteDuplicateExtras()}
+          >
+            Remove duplicates
+          </Button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border bg-card">
         <table className="w-full min-w-[900px] text-sm">
@@ -179,7 +237,13 @@ export function RunsTable({ runs }: { runs: Run[] }) {
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
+                <tr
+                  key={row.id}
+                  className={cn(
+                    'border-b last:border-0 hover:bg-muted/30',
+                    duplicateIds.has(row.original.id) && 'bg-chart-3/5',
+                  )}
+                >
                   {row.getAllCells().map((cell) => (
                     <td key={cell.id} className="px-3 py-2">
                       <table.FlexRender cell={cell} />

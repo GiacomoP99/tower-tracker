@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Home, ImageUp, LayoutDashboard, ListOrdered, LogOut, Plus } from 'lucide-react'
+import { Home, ImageUp, LayoutDashboard, ListOrdered, LogOut, Plus, SquareStack } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const nav = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/cards', label: 'Cards', icon: SquareStack },
   { to: '/runs', label: 'Runs', icon: ListOrdered },
   { to: '/runs/new', label: 'Log run', icon: Plus },
   { to: '/runs/import', label: 'Import', icon: ImageUp },
@@ -34,7 +35,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     : pathname === item.to ||
                       (item.to === '/runs' && (pathname === '/runs' || pathname === '/runs/')) ||
                       (item.to === '/runs/import' && pathname.startsWith('/runs/import')) ||
-                      (item.to === '/dashboard' && pathname.startsWith('/dashboard'))
+                      (item.to === '/dashboard' && pathname.startsWith('/dashboard')) ||
+                      (item.to === '/cards' && pathname.startsWith('/cards'))
                 return (
                   <Link
                     key={item.to}

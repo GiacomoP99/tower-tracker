@@ -24,6 +24,7 @@ npm install
 2. In the SQL editor, run these migrations in order:
    - [`supabase/migrations/001_runs.sql`](supabase/migrations/001_runs.sql)
    - [`supabase/migrations/002_goals.sql`](supabase/migrations/002_goals.sql)
+   - [`supabase/migrations/003_user_cards.sql`](supabase/migrations/003_user_cards.sql)
 3. Copy `.env.example` to `.env` and fill in:
 
 ```env
@@ -71,6 +72,17 @@ On **Home** (`/`):
 Charts and best-run markers live on **Dashboard** (`/dashboard`).
 
 Requires the `002_goals.sql` migration.
+
+## Cards
+
+On **Cards** (`/cards`):
+
+- All 31 Tower cards with artwork (from [Tower Hub](https://www.tower-hub.com))
+- Set **star rank** (1–7) by tapping stars
+- Track **extras** with +/- or typing a number
+- Filter by rarity / owned / search
+
+Requires the `003_user_cards.sql` migration.
 
 ## Run fields
 

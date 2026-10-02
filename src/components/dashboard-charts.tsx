@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { RunComparisonPanel } from '@/components/run-comparison'
 import {
   formatDuration,
   formatRunDate,
@@ -589,6 +590,8 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
 
   return (
     <div className="space-y-6">
+      <RunComparisonPanel runs={runs} />
+
       <div className="flex flex-wrap items-end gap-4">
         <div className="grid gap-2">
           <Label>Range</Label>

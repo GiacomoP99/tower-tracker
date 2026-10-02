@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js'
+import type { DuplicateMatch } from '@/lib/duplicates'
 import { parseTowerNumber } from '@/lib/metrics'
 import type { PlayMode, RunInsert } from '@/types/run'
 
@@ -20,6 +21,7 @@ export type ImportDraftRun = RunInsert & {
   coins_per_hour: string
   confidence: 'high' | 'medium' | 'low'
   raw: string
+  duplicate?: DuplicateMatch | null
 }
 
 const COMPACT_NUM = String.raw`[\d.,]+(?:[eE][+-]?\d+)?[KMBTqQsSOND]?`
