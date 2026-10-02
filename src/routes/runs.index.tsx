@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { ImageUp, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { AppShell } from '@/components/app-shell'
 import { RunsTable } from '@/components/runs-table'
 import { Button } from '@/components/ui/button'
@@ -25,16 +25,10 @@ function RunsPage() {
           <p className="text-sm text-muted-foreground">Every logged farm or push attempt</p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/runs/import">
-              <ImageUp className="size-4" />
-              Import screenshot
-            </Link>
-          </Button>
           <Button asChild>
             <Link to="/runs/new">
               <Plus className="size-4" />
-              Log run
+              Add run
             </Link>
           </Button>
         </div>

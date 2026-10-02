@@ -57,13 +57,6 @@ export function AdvisorPanel({ runs }: { runs: Run[] }) {
 
   return (
     <section className="space-y-3">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Advisor</h2>
-        <p className="text-sm text-muted-foreground">
-          Suggestions from your recent runs and card ranks — best tiers, gaps, and next moves
-        </p>
-      </div>
-
       {cardsLoading && runs.length > 0 ? (
         <p className="text-sm text-muted-foreground">Reading your card inventory…</p>
       ) : tips.length === 0 ? (
@@ -114,7 +107,7 @@ function TipCard({ tip }: { tip: AdvisorTip }) {
         </div>
         {tip.href && (
           <Button asChild variant="outline" size="sm" className="w-fit">
-            <Link to={tip.href}>
+            <Link to={tip.href} search={tip.hrefSearch}>
               {tip.hrefLabel ?? 'Open'}
               <ArrowRight className="size-3.5" />
             </Link>

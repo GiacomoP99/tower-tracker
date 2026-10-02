@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Home, ImageUp, LayoutDashboard, ListOrdered, LogOut, Plus, SquareStack } from 'lucide-react'
+import { Home, LayoutDashboard, Lightbulb, ListOrdered, LogOut, Plus, SquareStack } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { to: '/', label: 'Home', icon: Home },
+  { to: '/advisor', label: 'Advisor', icon: Lightbulb },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/cards', label: 'Cards', icon: SquareStack },
   { to: '/runs', label: 'Runs', icon: ListOrdered },
-  { to: '/runs/new', label: 'Log run', icon: Plus },
-  { to: '/runs/import', label: 'Import', icon: ImageUp },
+  { to: '/runs/new', label: 'Add run', icon: Plus },
 ] as const
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -32,11 +32,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 const active =
                   item.to === '/'
                     ? pathname === '/'
-                    : pathname === item.to ||
-                      (item.to === '/runs' && (pathname === '/runs' || pathname === '/runs/')) ||
-                      (item.to === '/runs/import' && pathname.startsWith('/runs/import')) ||
-                      (item.to === '/dashboard' && pathname.startsWith('/dashboard')) ||
-                      (item.to === '/cards' && pathname.startsWith('/cards'))
+                    : item.to === '/runs/new'
+                      ? pathname.startsWith('/runs/new') || pathname.startsWith('/runs/import')
+                      : item.to === '/runs'
+                        ? pathname === '/runs' || pathname === '/runs/'
+                        : pathname === item.to || pathname.startsWith(`${item.to}/`)
                 return (
                   <Link
                     key={item.to}

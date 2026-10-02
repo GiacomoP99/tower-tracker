@@ -14,8 +14,9 @@ export type AdvisorTip = {
   priority: number
   title: string
   body: string
-  href?: '/cards' | '/dashboard' | '/runs/new' | '/runs/import' | '/runs'
+  href?: '/cards' | '/dashboard' | '/runs/new' | '/runs'
   hrefLabel?: string
+  hrefSearch?: { tab: 'manual' | 'import' }
 }
 
 /** Cards that most often matter for coin/cell farming — prioritized when underleveled. */
@@ -328,8 +329,9 @@ export function generateAdvisorTips(
       priority: 110,
       title: 'Log a few farms to unlock advice',
       body: 'Advisor needs run history (tier, wave, coins, cells) to recommend your best farming tier and progress trends. Import a Battle History screenshot to get started fast.',
-      href: '/runs/import',
+      href: '/runs/new',
       hrefLabel: 'Import screenshot',
+      hrefSearch: { tab: 'import' },
     })
   } else if (runs.length < 5) {
     tips.push({
@@ -338,8 +340,9 @@ export function generateAdvisorTips(
       priority: 45,
       title: 'More runs will sharpen advice',
       body: `Only ${runs.length} runs logged so far. A week of data makes tier and CPH suggestions much more reliable.`,
-      href: '/runs/import',
+      href: '/runs/new',
       hrefLabel: 'Import more',
+      hrefSearch: { tab: 'import' },
     })
   }
 
