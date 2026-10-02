@@ -11,10 +11,16 @@ import { supabase } from '@/lib/supabase'
 
 type AddTab = 'manual' | 'import'
 
+type AddRunSearch = {
+  tab?: AddTab
+}
+
 export const Route = createFileRoute('/runs/new')({
-  validateSearch: (search: Record<string, unknown>): { tab: AddTab } => ({
-    tab: search.tab === 'import' ? 'import' : 'manual',
-  }),
+  validateSearch: (search: Record<string, unknown>): AddRunSearch => {
+    if (search.tab === 'import') return { tab: 'import' }
+    if (search.tab === 'manual') return { tab: 'manual' }
+    return {}
+  },
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession()
     if (!data.session) throw redirect({ to: '/login' })
@@ -23,7 +29,8 @@ export const Route = createFileRoute('/runs/new')({
 })
 
 function AddRunPage() {
-  const { tab } = Route.useSearch()
+  const { tab: tabParam } = Route.useSearch()
+  const tab: AddTab = tabParam ?? 'manual'
   const navigate = useNavigate({ from: '/runs/new' })
   const createRun = useCreateRun()
 
