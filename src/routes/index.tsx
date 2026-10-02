@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { AdvisorPanel } from '@/components/advisor-panel'
 import { AppShell } from '@/components/app-shell'
 import { GoalsPanel } from '@/components/goals-panel'
 import { StreaksPanel } from '@/components/streaks-panel'
@@ -20,7 +21,9 @@ function HomePage() {
     <AppShell>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Home</h1>
-        <p className="text-sm text-muted-foreground">Your goals and farming consistency at a glance</p>
+        <p className="text-sm text-muted-foreground">
+          Advisor tips, goals, and farming consistency at a glance
+        </p>
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -28,6 +31,7 @@ function HomePage() {
         <p className="text-sm text-destructive">{error.message}</p>
       ) : (
         <div className="space-y-10">
+          <AdvisorPanel runs={runs} />
           <GoalsPanel runs={runs} />
           <StreaksPanel runs={runs} />
         </div>
