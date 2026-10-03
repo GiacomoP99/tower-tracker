@@ -2,7 +2,9 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import Decimal from 'decimal.js'
 import { endOfDay, format, parseISO, startOfDay, startOfWeek, subDays } from 'date-fns'
-import { defineChart, lineY, barY } from '@tanstack/charts'
+import { curveMonotoneX } from 'd3-shape'
+import { areaY, barY, defineChart, lineY } from '@tanstack/charts'
+import { d3Curve } from '@tanstack/charts/d3/shape'
 import { Chart } from '@tanstack/charts/react/tooltip'
 import { tooltip } from '@tanstack/charts/tooltip'
 import { scaleLinear } from '@tanstack/charts/scales/linear'
@@ -26,6 +28,84 @@ import {
 } from '@/lib/metrics'
 import type { Run } from '@/types/run'
 import { cn } from '@/lib/utils'
+
+const CHART_COLORS = {
+  coins: '#f0c14a',
+  cells: '#34d399',
+  cph: '#fbbf24',
+  cellsPh: '#2dd4bf',
+  wave: '#60a5fa',
+  runs: '#a78bfa',
+} as const
+
+const smoothCurve = d3Curve(curveMonotoneX)
+
+const chartTheme = {
+  foreground: 'oklch(0.86 0.02 250)',
+  muted: 'oklch(0.62 0.02 250)',
+  grid: 'oklch(0.32 0.03 260 / 0.55)',
+  background: 'transparent',
+  palette: [CHART_COLORS.coins, CHART_COLORS.cells, CHART_COLORS.wave, CHART_COLORS.runs],
+}
+
+const chartTooltip = {
+  use: tooltip,
+  className: 'tt-chart-tooltip',
+}
+
+const lineGradients = [
+  {
+    id: 'coins-fill',
+    x1: 0,
+    y1: 1,
+    x2: 0,
+    y2: 0,
+    stops: [
+      { offset: 0, color: CHART_COLORS.coins, opacity: 0 },
+      { offset: 1, color: CHART_COLORS.coins, opacity: 0.28 },
+    ],
+  },
+  {
+    id: 'cells-fill',
+    x1: 0,
+    y1: 1,
+    x2: 0,
+    y2: 0,
+    stops: [
+      { offset: 0, color: CHART_COLORS.cells, opacity: 0 },
+      { offset: 1, color: CHART_COLORS.cells, opacity: 0.22 },
+    ],
+  },
+  {
+    id: 'cph-fill',
+    x1: 0,
+    y1: 1,
+    x2: 0,
+    y2: 0,
+    stops: [
+      { offset: 0, color: CHART_COLORS.cph, opacity: 0 },
+      { offset: 1, color: CHART_COLORS.cph, opacity: 0.28 },
+    ],
+  },
+  {
+    id: 'cellsph-fill',
+    x1: 0,
+    y1: 1,
+    x2: 0,
+    y2: 0,
+    stops: [
+      { offset: 0, color: CHART_COLORS.cellsPh, opacity: 0 },
+      { offset: 1, color: CHART_COLORS.cellsPh, opacity: 0.22 },
+    ],
+  },
+] as const
+
+function compactRunLabel(iso: string, total: number): string {
+  const date = parseISO(iso)
+  if (total > 24) return format(date, 'M/d')
+  if (total > 12) return format(date, 'MMM d')
+  return format(date, 'MMM d · HH:mm')
+}
 
 type DashboardChartsProps = {
   runs: Run[]
@@ -183,7 +263,7 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
       filtered.map((run) => {
         const metrics = runMetrics(run)
         return {
-          label: format(parseISO(run.ran_at), 'MMM d HH:mm'),
+          label: compactRunLabel(run.ran_at, filtered.length),
           tier: run.tier,
           wave: run.wave_reached,
           coins: toChartNumber(run.coins),
@@ -274,23 +354,44 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
     () =>
       defineChart({
         marks: [
+          areaY(series, {
+            id: 'coins-area',
+            x: 'label',
+            y: 'coins',
+            fill: 'url(#coins-fill)',
+            curve: smoothCurve,
+            z: () => 'Coins',
+          }),
           lineY(series, {
             id: 'coins',
             x: 'label',
             y: 'coins',
             points: true,
-            stroke: '#f0c14a',
+            stroke: CHART_COLORS.coins,
+            strokeWidth: 2.5,
+            curve: smoothCurve,
             z: () => 'Coins',
           }),
           ...(showCells
             ? [
+                areaY(series, {
+                  id: 'cells-area',
+                  x: 'label',
+                  y: 'cells',
+                  yScale: 'cells',
+                  fill: 'url(#cells-fill)',
+                  curve: smoothCurve,
+                  z: () => 'Cells',
+                }),
                 lineY(series, {
                   id: 'cells',
                   x: 'label',
                   y: 'cells',
                   yScale: 'cells',
                   points: true,
-                  stroke: '#4ade80',
+                  stroke: CHART_COLORS.cells,
+                  strokeWidth: 2.25,
+                  curve: smoothCurve,
                   z: () => 'Cells',
                 }),
               ]
@@ -298,15 +399,20 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
         ],
         scales: {
           x: {
-            scale: () => scalePoint<string>().padding(0.2),
+            scale: () => scalePoint<string>().padding(0.15),
             axis: { label: 'Run' },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
-              label: 'Coins',
+              label: {
+                text: 'Coins',
+                fill: CHART_COLORS.coins,
+                fontWeight: 600,
+              },
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
@@ -316,16 +422,24 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
                   channel: 'y' as const,
                   scale: scaleLinear,
                   nice: true,
+                  zero: true,
                   side: 'right' as const,
                   axis: {
-                    label: 'Cells',
+                    label: {
+                      text: 'Cells',
+                      fill: CHART_COLORS.cells,
+                      fontWeight: 600,
+                    },
                     ticks: { format: (value: number) => formatTowerNumber(value) },
                   },
                 },
               }
             : {}),
         },
-        tooltip,
+        theme: chartTheme,
+        gradients: [...lineGradients],
+        clip: true,
+        tooltip: chartTooltip,
       }),
     [series, showCells],
   )
@@ -334,23 +448,44 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
     () =>
       defineChart({
         marks: [
+          areaY(series, {
+            id: 'cph-area',
+            x: 'label',
+            y: 'coinsPerHour',
+            fill: 'url(#cph-fill)',
+            curve: smoothCurve,
+            z: () => 'Coins/h',
+          }),
           lineY(series, {
             id: 'cph',
             x: 'label',
             y: 'coinsPerHour',
             points: true,
-            stroke: '#eab308',
+            stroke: CHART_COLORS.cph,
+            strokeWidth: 2.5,
+            curve: smoothCurve,
             z: () => 'Coins/h',
           }),
           ...(showCells
             ? [
+                areaY(series, {
+                  id: 'cellsph-area',
+                  x: 'label',
+                  y: 'cellsPerHour',
+                  yScale: 'cellsPerHour',
+                  fill: 'url(#cellsph-fill)',
+                  curve: smoothCurve,
+                  z: () => 'Cells/h',
+                }),
                 lineY(series, {
                   id: 'cellsph',
                   x: 'label',
                   y: 'cellsPerHour',
                   yScale: 'cellsPerHour',
                   points: true,
-                  stroke: '#34d399',
+                  stroke: CHART_COLORS.cellsPh,
+                  strokeWidth: 2.25,
+                  curve: smoothCurve,
                   z: () => 'Cells/h',
                 }),
               ]
@@ -358,15 +493,20 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
         ],
         scales: {
           x: {
-            scale: () => scalePoint<string>().padding(0.2),
+            scale: () => scalePoint<string>().padding(0.15),
             axis: { label: 'Run' },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
-              label: 'Coins/h',
+              label: {
+                text: 'Coins/h',
+                fill: CHART_COLORS.cph,
+                fontWeight: 600,
+              },
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
@@ -376,16 +516,24 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
                   channel: 'y' as const,
                   scale: scaleLinear,
                   nice: true,
+                  zero: true,
                   side: 'right' as const,
                   axis: {
-                    label: 'Cells/h',
+                    label: {
+                      text: 'Cells/h',
+                      fill: CHART_COLORS.cellsPh,
+                      fontWeight: 600,
+                    },
                     ticks: { format: (value: number) => formatTowerNumber(value) },
                   },
                 },
               }
             : {}),
         },
-        tooltip,
+        theme: chartTheme,
+        gradients: [...lineGradients],
+        clip: true,
+        tooltip: chartTooltip,
       }),
     [series, showCells],
   )
@@ -400,25 +548,31 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             id: 'agg-coins',
             x: 'label',
             y: 'coins',
-            fill: '#f0c14a',
+            fill: CHART_COLORS.coins,
+            fillOpacity: 0.88,
+            radius: [6, 6, 2, 2] as const,
+            inset: 2,
+            maxThickness: 42,
           }),
         ],
         scales: {
           x: {
-            scale: () => scaleBand().padding(0.2),
+            scale: () => scaleBand().padding(0.28),
             axis: { label: periodLabel },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
               label: 'Coins',
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
         },
-        tooltip,
+        theme: chartTheme,
+        tooltip: chartTooltip,
       }),
     [aggregates, periodLabel],
   )
@@ -431,25 +585,31 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             id: 'agg-cells',
             x: 'label',
             y: 'cells',
-            fill: '#4ade80',
+            fill: CHART_COLORS.cells,
+            fillOpacity: 0.88,
+            radius: [6, 6, 2, 2] as const,
+            inset: 2,
+            maxThickness: 42,
           }),
         ],
         scales: {
           x: {
-            scale: () => scaleBand().padding(0.2),
+            scale: () => scaleBand().padding(0.28),
             axis: { label: periodLabel },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
               label: 'Cells',
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
         },
-        tooltip,
+        theme: chartTheme,
+        tooltip: chartTooltip,
       }),
     [aggregates, periodLabel],
   )
@@ -465,12 +625,12 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             : 'Runs'
     const fill =
       byTierMetric === 'avgCellsPh'
-        ? '#4ade80'
+        ? CHART_COLORS.cells
         : byTierMetric === 'avgWave'
-          ? '#60a5fa'
+          ? CHART_COLORS.wave
           : byTierMetric === 'runs'
-            ? '#a78bfa'
-            : '#f0c14a'
+            ? CHART_COLORS.runs
+            : CHART_COLORS.coins
 
     return defineChart({
       marks: [
@@ -479,17 +639,22 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
           x: 'label',
           y: byTierMetric,
           fill,
+          fillOpacity: 0.9,
+          radius: [8, 8, 2, 2] as const,
+          inset: 3,
+          maxThickness: 56,
         }),
       ],
       scales: {
         x: {
-          scale: () => scaleBand().padding(0.25),
+          scale: () => scaleBand().padding(0.32),
           axis: { label: 'Tier' },
         },
         y: {
           scale: scaleLinear,
           nice: true,
           grid: true,
+          zero: true,
           axis: {
             label: metricLabel,
             ticks: {
@@ -501,7 +666,8 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
           },
         },
       },
-      tooltip,
+      theme: chartTheme,
+      tooltip: chartTooltip,
     })
   }, [tierStats, byTierMetric])
 
@@ -513,25 +679,31 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             id: 'tier-coins',
             x: 'label',
             y: 'totalCoins',
-            fill: '#f0c14a',
+            fill: CHART_COLORS.coins,
+            fillOpacity: 0.88,
+            radius: [6, 6, 2, 2] as const,
+            inset: 2,
+            maxThickness: 48,
           }),
         ],
         scales: {
           x: {
-            scale: () => scaleBand().padding(0.25),
+            scale: () => scaleBand().padding(0.32),
             axis: { label: 'Tier' },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
               label: 'Total coins',
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
         },
-        tooltip,
+        theme: chartTheme,
+        tooltip: chartTooltip,
       }),
     [tierStats],
   )
@@ -544,25 +716,31 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             id: 'tier-cells',
             x: 'label',
             y: 'totalCells',
-            fill: '#4ade80',
+            fill: CHART_COLORS.cells,
+            fillOpacity: 0.88,
+            radius: [6, 6, 2, 2] as const,
+            inset: 2,
+            maxThickness: 48,
           }),
         ],
         scales: {
           x: {
-            scale: () => scaleBand().padding(0.25),
+            scale: () => scaleBand().padding(0.32),
             axis: { label: 'Tier' },
           },
           y: {
             scale: scaleLinear,
             nice: true,
             grid: true,
+            zero: true,
             axis: {
               label: 'Total cells',
               ticks: { format: (value: number) => formatTowerNumber(value) },
             },
           },
         },
-        tooltip,
+        theme: chartTheme,
+        tooltip: chartTooltip,
       }),
     [tierStats],
   )
@@ -684,12 +862,25 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
           {empty ? (
             <EmptyChart />
           ) : (
-            <Chart
-              definition={incomeChart}
-              height={320}
-              ariaLabel={showCells ? 'Coins and cells over time' : 'Coins over time'}
-              renderTooltipBody={renderRunTooltip}
-            />
+            <ChartSurface
+              legend={
+                showCells
+                  ? [
+                      { label: 'Coins', color: CHART_COLORS.coins },
+                      { label: 'Cells', color: CHART_COLORS.cells },
+                    ]
+                  : [{ label: 'Coins', color: CHART_COLORS.coins }]
+              }
+            >
+              <Chart
+                className="tt-chart"
+                idPrefix="income"
+                definition={incomeChart}
+                height={360}
+                ariaLabel={showCells ? 'Coins and cells over time' : 'Coins over time'}
+                renderTooltipBody={renderRunTooltip}
+              />
+            </ChartSurface>
           )}
         </CardContent>
       </Card>
@@ -706,12 +897,25 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
           {empty ? (
             <EmptyChart />
           ) : (
-            <Chart
-              definition={rateChart}
-              height={320}
-              ariaLabel={showCells ? 'Coins and cells per hour trend' : 'Coins per hour trend'}
-              renderTooltipBody={renderRunTooltip}
-            />
+            <ChartSurface
+              legend={
+                showCells
+                  ? [
+                      { label: 'Coins/h', color: CHART_COLORS.cph },
+                      { label: 'Cells/h', color: CHART_COLORS.cellsPh },
+                    ]
+                  : [{ label: 'Coins/h', color: CHART_COLORS.cph }]
+              }
+            >
+              <Chart
+                className="tt-chart"
+                idPrefix="rate"
+                definition={rateChart}
+                height={360}
+                ariaLabel={showCells ? 'Coins and cells per hour trend' : 'Coins per hour trend'}
+                renderTooltipBody={renderRunTooltip}
+              />
+            </ChartSurface>
           )}
         </CardContent>
       </Card>
@@ -736,25 +940,42 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             <EmptyChart />
           ) : (
             <>
-              <Chart definition={byTierChart} height={280} ariaLabel="By tier comparison" renderTooltipBody={renderTierTooltip} />
+              <ChartSurface>
+                <Chart
+                  className="tt-chart"
+                  idPrefix="by-tier"
+                  definition={byTierChart}
+                  height={300}
+                  ariaLabel="By tier comparison"
+                  renderTooltipBody={renderTierTooltip}
+                />
+              </ChartSurface>
               <div className="grid gap-6 lg:grid-cols-2">
                 <div>
                   <p className="mb-2 text-sm font-medium text-muted-foreground">Total coins by tier</p>
-                  <Chart
-                    definition={byTierIncomeChart}
-                    height={240}
-                    ariaLabel="Total coins by tier"
-                    renderTooltipBody={renderTierTooltip}
-                  />
+                  <ChartSurface>
+                    <Chart
+                      className="tt-chart"
+                      idPrefix="tier-coins"
+                      definition={byTierIncomeChart}
+                      height={260}
+                      ariaLabel="Total coins by tier"
+                      renderTooltipBody={renderTierTooltip}
+                    />
+                  </ChartSurface>
                 </div>
                 <div>
                   <p className="mb-2 text-sm font-medium text-muted-foreground">Total cells by tier</p>
-                  <Chart
-                    definition={byTierCellsChart}
-                    height={240}
-                    ariaLabel="Total cells by tier"
-                    renderTooltipBody={renderTierTooltip}
-                  />
+                  <ChartSurface>
+                    <Chart
+                      className="tt-chart"
+                      idPrefix="tier-cells"
+                      definition={byTierCellsChart}
+                      height={260}
+                      ariaLabel="Total cells by tier"
+                      renderTooltipBody={renderTierTooltip}
+                    />
+                  </ChartSurface>
                 </div>
               </div>
               <div className="overflow-x-auto rounded-lg border">
@@ -810,21 +1031,29 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             <div className="grid gap-6 lg:grid-cols-2">
               <div>
                 <p className="mb-2 text-sm font-medium text-muted-foreground">Coins</p>
-                <Chart
-                  definition={aggregateCoinsChart}
-                  height={280}
-                  ariaLabel={`${aggregateMode} coins totals`}
-                  renderTooltipBody={renderAggregateTooltip}
-                />
+                <ChartSurface legend={[{ label: 'Coins', color: CHART_COLORS.coins }]}>
+                  <Chart
+                    className="tt-chart"
+                    idPrefix="agg-coins"
+                    definition={aggregateCoinsChart}
+                    height={300}
+                    ariaLabel={`${aggregateMode} coins totals`}
+                    renderTooltipBody={renderAggregateTooltip}
+                  />
+                </ChartSurface>
               </div>
               <div>
                 <p className="mb-2 text-sm font-medium text-muted-foreground">Cells</p>
-                <Chart
-                  definition={aggregateCellsChart}
-                  height={280}
-                  ariaLabel={`${aggregateMode} cells totals`}
-                  renderTooltipBody={renderAggregateTooltip}
-                />
+                <ChartSurface legend={[{ label: 'Cells', color: CHART_COLORS.cells }]}>
+                  <Chart
+                    className="tt-chart"
+                    idPrefix="agg-cells"
+                    definition={aggregateCellsChart}
+                    height={300}
+                    ariaLabel={`${aggregateMode} cells totals`}
+                    renderTooltipBody={renderAggregateTooltip}
+                  />
+                </ChartSurface>
               </div>
             </div>
           )}
@@ -916,6 +1145,33 @@ function CellsToggle({
   )
 }
 
+function ChartSurface({
+  children,
+  legend,
+}: {
+  children: ReactNode
+  legend?: Array<{ label: string; color: string }>
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-border/60 bg-gradient-to-b from-muted/25 to-transparent p-3 sm:p-4">
+      {legend && legend.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {legend.map((item) => (
+            <span
+              key={item.label}
+              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground"
+            >
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {children}
+    </div>
+  )
+}
+
 function renderRunTooltip({
   points,
   defaultBody,
@@ -986,5 +1242,9 @@ function TooltipBadge({ children }: { children: ReactNode }) {
 }
 
 function EmptyChart() {
-  return <p className="py-16 text-center text-sm text-muted-foreground">No runs in this date range.</p>
+  return (
+    <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/15">
+      <p className="text-sm text-muted-foreground">No runs in this date range.</p>
+    </div>
+  )
 }

@@ -74,3 +74,29 @@
     min-height: 100vh;
   }
 }
+
+/* TanStack Charts — dark dashboard polish */
+.tt-chart {
+  color: oklch(0.86 0.02 250);
+  --ts-chart-1: #f0c14a;
+  --ts-chart-2: #4ade80;
+  --ts-chart-3: #60a5fa;
+  --ts-chart-4: #a78bfa;
+  --ts-chart-5: #fb7185;
+  --ts-chart-6: #22d3ee;
+  --ts-chart-tooltip-background: color-mix(in oklab, oklch(0.2 0.03 260) 92%, transparent);
+  --ts-chart-tooltip-color: oklch(0.93 0.01 250);
+  --ts-chart-tooltip-border: 1px solid oklch(0.36 0.04 260);
+  --ts-chart-tooltip-border-radius: 0.75rem;
+  --ts-chart-tooltip-shadow: 0 16px 40px oklch(0.1 0.02 260 / 0.55);
+  --ts-chart-tooltip-padding: 0.75rem 0.875rem;
+  --ts-chart-tooltip-font: 0.8125rem/1.35 ui-sans-serif, system-ui, sans-serif;
+}
+
+.tt-chart svg {
+  overflow: visible;
+}
+
+.tt-chart-tooltip {
+  backdrop-filter: blur(10px);
+}
