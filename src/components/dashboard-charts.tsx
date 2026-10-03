@@ -102,9 +102,25 @@ const lineGradients = [
 
 function compactRunLabel(iso: string, total: number): string {
   const date = parseISO(iso)
-  if (total > 24) return format(date, 'M/d')
-  if (total > 12) return format(date, 'MMM d')
+  // Always include time so same-day runs stay unique on the x-axis
+  // (TanStack Charts stack/series marks reject duplicate x + series keys).
+  if (total > 24) return format(date, 'M/d H:mm')
+  if (total > 12) return format(date, 'MMM d H:mm')
   return format(date, 'MMM d · HH:mm')
+}
+
+function uniqueRunLabels(isos: string[]): string[] {
+  const bases = isos.map((iso) => compactRunLabel(iso, isos.length))
+  const counts = new Map<string, number>()
+  for (const label of bases) counts.set(label, (counts.get(label) ?? 0) + 1)
+
+  const seen = new Map<string, number>()
+  return bases.map((label) => {
+    if ((counts.get(label) ?? 0) <= 1) return label
+    const n = (seen.get(label) ?? 0) + 1
+    seen.set(label, n)
+    return n === 1 ? label : `${label}·${n}`
+  })
 }
 
 type DashboardChartsProps = {
@@ -258,25 +274,24 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
     return { waveId, cphId, cellsPhId }
   }, [bestMarkers])
 
-  const series: Point[] = useMemo(
-    () =>
-      filtered.map((run) => {
-        const metrics = runMetrics(run)
-        return {
-          label: compactRunLabel(run.ran_at, filtered.length),
-          tier: run.tier,
-          wave: run.wave_reached,
-          coins: toChartNumber(run.coins),
-          cells: toChartNumber(run.cells),
-          coinsPerHour: toChartNumber(metrics.coinsPerHour),
-          cellsPerHour: toChartNumber(metrics.cellsPerHour),
-          isBestWave: run.id === bestIds.waveId,
-          isBestCph: run.id === bestIds.cphId,
-          isBestCellsPh: run.id === bestIds.cellsPhId,
-        }
-      }),
-    [filtered, bestIds],
-  )
+  const series: Point[] = useMemo(() => {
+    const labels = uniqueRunLabels(filtered.map((run) => run.ran_at))
+    return filtered.map((run, index) => {
+      const metrics = runMetrics(run)
+      return {
+        label: labels[index],
+        tier: run.tier,
+        wave: run.wave_reached,
+        coins: toChartNumber(run.coins),
+        cells: toChartNumber(run.cells),
+        coinsPerHour: toChartNumber(metrics.coinsPerHour),
+        cellsPerHour: toChartNumber(metrics.cellsPerHour),
+        isBestWave: run.id === bestIds.waveId,
+        isBestCph: run.id === bestIds.cphId,
+        isBestCellsPh: run.id === bestIds.cellsPhId,
+      }
+    })
+  }, [filtered, bestIds])
 
   const aggregates: AggregatePoint[] = useMemo(() => {
     const map = new Map<string, { coins: Decimal; cells: Decimal; tiers: Set<number> }>()
@@ -360,7 +375,6 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             y: 'coins',
             fill: 'url(#coins-fill)',
             curve: smoothCurve,
-            z: () => 'Coins',
           }),
           lineY(series, {
             id: 'coins',
@@ -381,7 +395,6 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
                   yScale: 'cells',
                   fill: 'url(#cells-fill)',
                   curve: smoothCurve,
-                  z: () => 'Cells',
                 }),
                 lineY(series, {
                   id: 'cells',
@@ -454,7 +467,6 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
             y: 'coinsPerHour',
             fill: 'url(#cph-fill)',
             curve: smoothCurve,
-            z: () => 'Coins/h',
           }),
           lineY(series, {
             id: 'cph',
@@ -475,7 +487,6 @@ export function DashboardCharts({ runs }: DashboardChartsProps) {
                   yScale: 'cellsPerHour',
                   fill: 'url(#cellsph-fill)',
                   curve: smoothCurve,
-                  z: () => 'Cells/h',
                 }),
                 lineY(series, {
                   id: 'cellsph',
